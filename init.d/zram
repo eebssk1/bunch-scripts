@@ -1,0 +1,114 @@
+#! /bin/sh
+# /etc/init.d/zram: Setup zram to compress memory
+#
+# written by EBK21 <eebssk1@ebktech21.xyz>
+
+### BEGIN INIT INFO
+# Provides:          zram
+# Required-Start:    mountkernfs $local_fs
+# Required-Stop:
+# Should-Start:      udev module-init-tools
+# X-Start-Before:    $network
+# Default-Start:     2 3 4 5
+# Default-Stop:     0 1 6
+# Short-Description: Setup zram to compress memory at boot
+# Description:  Setup zram to consume less true memory
+### END INIT INFO
+
+. /lib/lsb/init-functions
+
+STATUS=0
+
+error () {
+exit $STATUS
+}
+
+whprestepfail () {
+if [ $? != 0 ]
+then
+log_failure_msg "$@"
+STATUS=1
+error
+fi
+}
+
+whstepfail () {
+log_failure_msg "$@"
+STATUS=1
+error
+}
+
+checkandset () {
+if [ $? != 0 ]
+then
+STATUS=1
+fi
+}
+
+whfailbystat () {
+if [ $STATUS != 0 ]
+then
+whstepfail "$@"
+fi
+}
+
+case "$1" in
+start)
+log_begin_msg "Start setup zram\n"
+if [ ! -d /sys/module/zram ]
+then
+log_action_msg "No zram loaded.Trying to load zram module..."
+modprobe zram
+whprestepfail "No zram in-kernel support or failed to load zram module!"
+else
+if [ x$(lsblk -n --output FSTYPE  /dev/zram0 ) != x ]
+then
+whstepfail "zram already load as other usage,please unload to continue. OR failed previous start"
+fi
+fi
+SIZE=$(echo $(($(cat /proc/meminfo | grep MemTotal | sed  's/[^0-9]//g')*1024/5)))
+SIZEMB=$(echo $(($SIZE/1024/1024)))
+log_action_msg "Set ${SIZEMB}MB zram space..."
+echo 1 > /sys/block/zram0/reset
+checkandset
+echo lz4hc > /sys/block/zram0/comp_algorithm
+checkandset
+echo $SIZE > /sys/block/zram0/disksize
+whprestepfail "Failed to write zram size"
+echo 320 > /sys/block/zram0/queue/read_ahead_kb
+checkandset
+whfailbystat  "Failed to set misc setting for zram or failed to reset"
+mkswap /dev/zram0
+whprestepfail "Failed to make swap on zram"
+swapon -p 10 /dev/zram0
+whprestepfail "Failed to start swap on zram"
+echo 1 > /sys/block/zram0/compact
+log_end_msg $STATUS
+;;
+stop)
+log_begin_msg "Stopping zram"
+if [ x$(swapon --show=NAME | grep zram0) != x ]
+then
+swapoff /dev/zram0
+whprestepfail "Failed to stop swap on zram!"
+echo 1 > /sys/block/zram0/reset
+if [ $? != 0 ]
+then
+log_warning_msg "Failed to reset zram!"
+else
+log_end_msg $STATUS
+fi
+else
+if [ x$(lsblk -n --output FSTYPE /dev/zram0 | grep swap) != x ]
+then
+echo 1 > /sys/block/zram0/reset
+whprestepfail "Failed to reset old swap"
+log_end_msg $STATUS
+else
+log_warning_msg "No swap on zram is actived!"
+fi
+fi
+;;
+status)
+;;
+esac
