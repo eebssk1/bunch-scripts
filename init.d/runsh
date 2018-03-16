@@ -70,6 +70,10 @@ for sh in $SCDI/*
 do
 if [ -f $sh ]
 then
+if [ -f $SCDI/.shme ]
+then
+cat $sh > /var/log/runsh-rancmd.log
+fi
 echo "$sh\n" >> /var/log/runsh.log
 sh $sh 2>&1 >> /var/log/runsh.log
 fi
