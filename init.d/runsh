@@ -1,0 +1,85 @@
+#! /bin/sh
+# /etc/init.d/runsh: Run scripts.
+#
+# written by EBK21 <eebssk1@ebktech21.xyz>
+
+### BEGIN INIT INFO
+# Provides:          runsh
+# Required-Start:    mountkernfs $local_fs
+# Required-Stop:
+# Should-Start:      udev module-init-tools
+# X-Start-Before:    $network
+# Default-Start:     2 3 4 5
+# Default-Stop:     0 1 6
+# Short-Description: Run scripts
+# Description:  Run scripts
+### END INIT INFO
+
+. /lib/lsb/init-functions
+
+STATUS=0
+
+error () {
+exit $STATUS
+}
+
+whprestepfail () {
+if [ $? != 0 ]
+then
+log_failure_msg "$@"
+STATUS=1
+error
+fi
+}
+
+whstepfail () {
+log_failure_msg "$@"
+STATUS=1
+error
+}
+
+checkandset () {
+if [ $? != 0 ]
+then
+STATUS=1
+fi
+}
+
+whfailbystat () {
+if [ $STATUS != 0 ]
+then
+whstepfail "$@"
+fi
+}
+
+SCDI=/etc/runsh
+
+case "$1" in
+start)
+log_begin_msg "Start running scripts\n"
+if [ ! -d $SCDI ]
+then
+whstepfail "Not a directory or no such directory"
+fi
+if [ -f /var/log/runsh.log ]
+then
+rm -rf /var/log/runsh.log
+fi
+echo "Start\n" >> /var/log/runsh.log
+for sh in $SCDI/*
+do
+if [ -f $sh ]
+then
+echo "$sh\n" >> /var/log/runsh.log
+sh $sh 2>&1 >> /var/log/runsh.log
+fi
+done
+echo "End\n" >> /var/log/runsh.log
+log_action_msg "Done"
+log_end_msg $STATUS
+;;
+stop)
+;;
+status)
+;;
+esac
