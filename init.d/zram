@@ -87,6 +87,7 @@ if [ -w /sys/module/zswap/parameters/enabled ]
 then
 echo 1 > /sys/module/zswap/parameters/enabled
 if [ $? != 0 ]
+then
 log_warning_msg "unable to set zswap!"
 fi
 else
