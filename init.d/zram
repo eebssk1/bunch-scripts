@@ -82,6 +82,16 @@ mkswap /dev/zram0
 whprestepfail "Failed to make swap on zram"
 swapon -p 10 /dev/zram0
 whprestepfail "Failed to start swap on zram"
+log_action_msg "Enable zswap too if possible"
+if [ -w /sys/module/zswap/parameters/enabled ]
+then
+echo 1 > /sys/module/zswap/parameters/enabled
+if [ $? != 0 ]
+log_warning_msg "unable to set zswap!"
+fi
+else
+log_warning_msg "Zswap not support"
+fi
 echo 1 > /sys/block/zram0/compact
 log_end_msg $STATUS
 ;;
